@@ -3,105 +3,64 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Memory } from '@/types/memory';
 
+const STORAGE_KEY = 'memory-jar-memories';
+
 export function useMemories() {
     const [memories, setMemories] = useState<Memory[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch memories from API on mount
+    // Load memories from localStorage on mount
     useEffect(() => {
-        const fetchMemories = async () => {
-            try {
-                const res = await fetch('/api/memories');
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        // Not authenticated - this is expected before login
-                        setIsLoaded(true);
-                        return;
-                    }
-                    throw new Error('Failed to fetch memories');
-                }
-                const data = await res.json();
-                setMemories(data.memories || []);
-            } catch (e) {
-                console.error('Failed to fetch memories:', e);
-                setError('Failed to load memories');
-            } finally {
-                setIsLoaded(true);
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                setMemories(JSON.parse(stored));
             }
-        };
-
-        fetchMemories();
+        } catch (e) {
+            console.error('Failed to load memories:', e);
+        } finally {
+            setIsLoaded(true);
+        }
     }, []);
 
-    const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
-        try {
-            const res = await fetch('/api/memories', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(memory),
-            });
-
-            if (!res.ok) throw new Error('Failed to save memory');
-
-            const data = await res.json();
-            const newMemory = data.memory;
-
-            // Check if updating existing or adding new
-            setMemories((prev) => {
-                const existingIndex = prev.findIndex((m) => m.date === newMemory.date);
-                if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = newMemory;
-                    return updated;
-                }
-                return [...prev, newMemory];
-            });
-
-            return newMemory;
-        } catch (e) {
-            console.error('Failed to save memory:', e);
-            setError('Failed to save memory');
-            throw e;
+    // Save to localStorage whenever memories change
+    useEffect(() => {
+        if (isLoaded) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(memories));
         }
+    }, [memories, isLoaded]);
+
+    const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
+        const newMemory: Memory = {
+            ...memory,
+            id: crypto.randomUUID(),
+            userId: 'local-user',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        setMemories((prev) => {
+            const existingIndex = prev.findIndex((m) => m.date === newMemory.date);
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = newMemory;
+                return updated;
+            }
+            return [...prev, newMemory];
+        });
+
+        return newMemory;
     }, []);
 
     const updateMemory = useCallback(async (id: string, updates: Partial<Memory>) => {
-        const existing = memories.find((m) => m.id === id);
-        if (!existing) return;
-
-        try {
-            const res = await fetch('/api/memories', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...existing, ...updates }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update memory');
-
-            const data = await res.json();
-            setMemories((prev) =>
-                prev.map((m) => (m.id === id ? data.memory : m))
-            );
-        } catch (e) {
-            console.error('Failed to update memory:', e);
-            setError('Failed to update memory');
-        }
-    }, [memories]);
+        setMemories((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, ...updates, updatedAt: new Date() } : m))
+        );
+    }, []);
 
     const deleteMemory = useCallback(async (id: string) => {
-        try {
-            const res = await fetch(`/api/memories?id=${id}`, {
-                method: 'DELETE',
-            });
-
-            if (!res.ok) throw new Error('Failed to delete memory');
-
-            setMemories((prev) => prev.filter((m) => m.id !== id));
-        } catch (e) {
-            console.error('Failed to delete memory:', e);
-            setError('Failed to delete memory');
-        }
+        setMemories((prev) => prev.filter((m) => m.id !== id));
     }, []);
 
     const getMemoryByDate = useCallback(
