@@ -2,9 +2,15 @@ import { signIn } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
+import { AuthError, CredentialsSignin } from 'next-auth';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ error?: string }>;
+}) {
     const session = await auth();
+    const { error } = await searchParams;
 
     // If already logged in, redirect to home
     if (session?.user) {
@@ -27,13 +33,28 @@ export default async function LoginPage() {
                 <div className="glass rounded-3xl p-8 shadow-xl">
                     <h2 className="text-xl font-semibold text-center mb-6">Welcome Back</h2>
 
+                    {error === 'InvalidCredentials' && (
+                        <p className="mb-4 text-sm text-red-600 dark:text-red-400 text-center">
+                            Invalid email or password. Please try again.
+                        </p>
+                    )}
+
                     <form
                         action={async (formData) => {
                             'use server';
                             try {
-                                await signIn('credentials', formData);
+                                await signIn('credentials', {
+                                    email: formData.get('email') as string,
+                                    password: formData.get('password') as string,
+                                    redirectTo: '/',
+                                });
                             } catch (error) {
-                                if ((error as Error).message.includes('CredentialsSignin')) {
+                                const err = error as Error & { type?: string };
+                                const isCredsError =
+                                    error instanceof CredentialsSignin ||
+                                    (error instanceof AuthError && err.type === 'CredentialsSignin') ||
+                                    (err?.message?.includes?.('CredentialsSignin') || err?.name === 'CredentialsSignin');
+                                if (isCredsError) {
                                     redirect('/login?error=InvalidCredentials');
                                 }
                                 throw error;

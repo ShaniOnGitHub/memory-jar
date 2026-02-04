@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Memory, Mood } from '@/types/memory';
+import { ImageLightbox } from '@/components/ImageLightbox';
 
 interface CalendarProps {
     memories: Memory[];
@@ -17,10 +18,20 @@ const MOOD_COLORS: Record<Mood, string> = {
     anxious: 'border-mood-anxious',
 };
 
+const MOOD_EMOJI: Record<Mood, string> = {
+    happy: '😊',
+    sad: '😢',
+    neutral: '😐',
+    excited: '🤩',
+    calm: '😌',
+    anxious: '😰',
+};
+
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function Calendar({ memories, onDateClick }: CalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const { year, month, daysInMonth, firstDayOfWeek, memoriesMap } = useMemo(() => {
         const y = currentDate.getFullYear();
@@ -80,55 +91,92 @@ export function Calendar({ memories, onDateClick }: CalendarProps) {
 
     // Empty cells for days before the first of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
-        cells.push(<div key={`empty-${i}`} className="aspect-square" />);
+        cells.push(<div key={`empty-${i}`} className="aspect-[1/1.28]" />);
     }
 
-    // Day cells
+    // Day cells with hover peek and micro preview
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = formatDateString(day);
         const memory = memoriesMap.get(dateStr);
         const today = isToday(day);
+        const previewText = memory?.note ? (memory.note.slice(0, 40) + (memory.note.length > 40 ? '…' : '')) : '';
+        const hoverLabel = memory
+            ? `${MOOD_EMOJI[memory.mood]} ${previewText || 'No note'}`
+            : 'Click to add memory';
 
         cells.push(
             <button
                 key={day}
                 onClick={() => onDateClick(dateStr)}
+                title={hoverLabel}
                 className={`
-          aspect-square rounded-xl p-1 relative overflow-hidden
-          transition-all duration-300 hover:scale-105 hover:shadow-lg
+          group aspect-[1/1.28] min-h-[44px] min-w-[44px] rounded-xl p-1 relative overflow-visible
+          transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg touch-manipulation
           ${today ? 'ring-2 ring-accent ring-offset-2 ring-offset-background' : ''}
-          ${memory ? `border-3 ${MOOD_COLORS[memory.mood]} bg-card shadow-md` : 'border border-border bg-card/50 hover:bg-card'}
+          ${memory ? `border-3 ${MOOD_COLORS[memory.mood]} bg-card shadow-card` : 'border border-border bg-card/50 hover:bg-card'}
         `}
             >
                 {/* Day Number */}
                 <span
                     className={`
-            absolute top-1 left-2 text-xs font-medium
+            absolute top-1 left-2 text-xs font-medium z-10
             ${today ? 'text-accent' : 'text-muted-foreground'}
           `}
                 >
                     {day}
                 </span>
 
-                {/* Memory Thumbnail */}
+                {/* Memory: mood emoji or photo thumbnail (taller so image has more height) */}
                 {memory && (
                     <div className="absolute inset-0 flex items-center justify-center pt-3">
                         {memory.imageUrl ? (
-                            <img
-                                src={memory.imageUrl}
-                                alt={`Memory for ${dateStr}`}
-                                className="w-[70%] h-[70%] object-cover rounded-lg shadow-sm"
-                            />
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImage(memory.imageUrl!);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setLightboxImage(memory.imageUrl!);
+                                    }
+                                }}
+                                className="block w-[70%] h-[80%] rounded-lg shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 cursor-pointer"
+                                aria-label="View photo full size"
+                            >
+                                <img
+                                    src={memory.imageUrl}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                />
+                            </span>
                         ) : (
-                            <span className="text-lg">
-                                {memory.mood === 'happy' && '😊'}
-                                {memory.mood === 'sad' && '😢'}
-                                {memory.mood === 'neutral' && '😐'}
-                                {memory.mood === 'excited' && '🤩'}
-                                {memory.mood === 'calm' && '😌'}
-                                {memory.mood === 'anxious' && '😰'}
+                            <span className="text-lg" aria-hidden>
+                                {MOOD_EMOJI[memory.mood]}
                             </span>
                         )}
+                    </div>
+                )}
+
+                {/* Hover peek: photo thumbnail for dates with image */}
+                {memory?.imageUrl && (
+                    <div
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-24 h-24 rounded-xl overflow-hidden shadow-xl border-2 border-border opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-20"
+                        aria-hidden
+                    >
+                        <img src={memory.imageUrl} alt="" className="w-full h-full object-cover" />
+                    </div>
+                )}
+                {/* Hover micro preview: mood + first line (tooltip) */}
+                {memory && !memory.imageUrl && (
+                    <div
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 rounded-lg bg-card border border-border shadow-lg text-xs text-foreground whitespace-nowrap max-w-[140px] truncate opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-20"
+                        aria-hidden
+                    >
+                        {MOOD_EMOJI[memory.mood]} {previewText || 'No note'}
                     </div>
                 )}
             </button>
@@ -136,25 +184,25 @@ export function Calendar({ memories, onDateClick }: CalendarProps) {
     }
 
     return (
-        <div className="glass rounded-3xl p-6 md:p-8">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
+        <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8">
+            {/* Header - mobile: compact, clear tap targets */}
+            <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                     <button
                         onClick={goToPrevMonth}
-                        className="p-2 rounded-full hover:bg-secondary transition-colors"
+                        className="min-h-[44px] min-w-[44px] p-2 rounded-full hover:bg-secondary active:bg-secondary/80 transition-colors touch-manipulation"
                         aria-label="Previous month"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
-                    <h2 className="text-xl md:text-2xl font-semibold">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-semibold truncate">
                         {monthName} {year}
                     </h2>
                     <button
                         onClick={goToNextMonth}
-                        className="p-2 rounded-full hover:bg-secondary transition-colors"
+                        className="min-h-[44px] min-w-[44px] p-2 rounded-full hover:bg-secondary active:bg-secondary/80 transition-colors touch-manipulation"
                         aria-label="Next month"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,35 +212,42 @@ export function Calendar({ memories, onDateClick }: CalendarProps) {
                 </div>
                 <button
                     onClick={goToToday}
-                    className="px-4 py-2 text-sm font-medium rounded-full bg-accent/20 hover:bg-accent/30 text-accent-foreground transition-colors"
+                    className="shrink-0 min-h-[44px] px-4 py-2.5 text-sm font-medium rounded-xl bg-accent/20 hover:bg-accent/30 text-accent-foreground transition-colors touch-manipulation active:bg-accent/40"
                 >
                     Today
                 </button>
             </div>
 
-            {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
+            {/* Weekday Headers - mobile: slightly smaller */}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                 {WEEKDAYS.map((day) => (
                     <div
                         key={day}
-                        className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider py-2"
+                        className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider py-1.5 sm:py-2"
                     >
                         {day}
                     </div>
                 ))}
             </div>
 
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-2">
+            {/* Calendar Grid - mobile: smaller gap for larger tap areas */}
+            <div key={`${year}-${month}`} className="grid grid-cols-7 gap-1.5 sm:gap-2 animate-fade-in">
                 {cells}
             </div>
 
-            {/* Mood Legend */}
-            <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <ImageLightbox
+                imageUrl={lightboxImage ?? ''}
+                open={lightboxImage !== null}
+                onClose={() => setLightboxImage(null)}
+                alt="Memory photo"
+            />
+
+            {/* Mood Legend - mobile: compact */}
+            <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3 justify-center">
                 {(Object.keys(MOOD_COLORS) as Mood[]).map((mood) => (
                     <div key={mood} className="flex items-center gap-1.5">
-                        <div className={`w-3 h-3 rounded-full border-2 ${MOOD_COLORS[mood]}`} />
-                        <span className="text-xs text-muted-foreground capitalize">{mood}</span>
+                        <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 ${MOOD_COLORS[mood]}`} />
+                        <span className="text-[10px] sm:text-xs text-muted-foreground capitalize">{mood}</span>
                     </div>
                 ))}
             </div>

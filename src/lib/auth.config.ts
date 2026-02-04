@@ -25,6 +25,13 @@ export const authConfig = {
 
             return true;
         },
+        jwt({ token, user }) {
+            // Persist database user id to token so session has correct userId for foreign keys
+            if (user?.id) {
+                token.sub = user.id;
+            }
+            return token;
+        },
         session({ session, token }) {
             if (session.user && token.sub) {
                 session.user.id = token.sub;

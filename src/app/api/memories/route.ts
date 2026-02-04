@@ -32,11 +32,29 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const body = await request.json();
-        const { date, note, mood, imageUrl } = body;
+        let body: unknown;
+        try {
+            body = await request.json();
+        } catch {
+            return NextResponse.json(
+                { error: 'Invalid JSON. If you added a photo, it may be too large—try a smaller image.' },
+                { status: 413 }
+            );
+        }
+
+        const { date, note, mood, imageUrl } = body as { date?: string; note?: string; mood?: string; imageUrl?: string };
 
         if (!date || !mood) {
             return NextResponse.json({ error: 'Date and mood are required' }, { status: 400 });
+        }
+
+        // Ensure the user exists in the DB (avoids foreign key error if session has stale id)
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+        if (!user) {
+            return NextResponse.json(
+                { error: 'User not found. Please log out and log in again.' },
+                { status: 401 }
+            );
         }
 
         // Upsert - create or update based on userId + date
@@ -64,7 +82,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ memory });
     } catch (error) {
         console.error('Error saving memory:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

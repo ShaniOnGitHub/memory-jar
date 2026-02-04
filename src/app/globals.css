@@ -3,21 +3,21 @@
 /* ===== Nostalgic Memory Jar Theme ===== */
 
 :root {
-  /* Light Mode - Warm Sand (Cozy, Earthy) */
+  /* Light Mode - Warm Sand (Cozy, Earthy) - WCAG AA contrast */
   --background: #FAF6F1;
-  --foreground: #4A4039;
+  --foreground: #3D3530;
   --card: #FFFFFF;
-  --card-foreground: #4A4039;
-  --primary: #C4A77D;
+  --card-foreground: #3D3530;
+  --primary: #B8956A;
   --primary-foreground: #FFFFFF;
   --secondary: #F0E8DE;
-  --secondary-foreground: #5A4D3F;
-  --accent: #8B7355;
+  --secondary-foreground: #4A4039;
+  --accent: #7A6348;
   --accent-foreground: #FFFFFF;
   --muted: #EDE6DC;
-  --muted-foreground: #7A6B5A;
+  --muted-foreground: #5C5248;
   --border: #E0D5C7;
-  --ring: #8B7355;
+  --ring: #7A6348;
 
   /* Mood Colors */
   --mood-happy: #E8C36A;
@@ -30,22 +30,29 @@
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.75);
   --glass-border: rgba(200, 180, 160, 0.3);
+  /* Soft glow border for cards (no hard line) */
+  --glass-card-shadow: 0 2px 20px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.7);
+  /* Depth: card vs elevated (modal) */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 10px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  /* Body text: slightly darker for readability */
+  --body: #3D3530;
 }
 
 .dark {
-  /* Dark Mode - Cozy, Warm Dark */
+  /* Dark Mode - Cozy, Warm Dark - WCAG AA contrast */
   --background: #1a1816;
-  --foreground: #e8e4df;
+  --foreground: #ebe7e2;
   --card: #252220;
-  --card-foreground: #e8e4df;
+  --card-foreground: #ebe7e2;
   --primary: #e8b4a0;
   --primary-foreground: #1a1816;
   --secondary: #2d2a26;
-  --secondary-foreground: #c4bdb4;
+  --secondary-foreground: #d1cbc4;
   --accent: #d4a574;
   --accent-foreground: #1a1816;
   --muted: #2d2a26;
-  --muted-foreground: #8b8178;
+  --muted-foreground: #a39d95;
   --border: #3d3832;
   --ring: #d4a574;
 
@@ -60,6 +67,11 @@
   /* Glassmorphism */
   --glass-bg: rgba(30, 27, 24, 0.8);
   --glass-border: rgba(60, 55, 50, 0.5);
+  /* Soft glow border for cards (no hard line) */
+  --glass-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-elevated: 0 20px 50px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.15);
+  --body: #ebe7e2;
 }
 
 @theme inline {
@@ -95,7 +107,22 @@ body {
   color: var(--foreground);
   font-family: 'Outfit', sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
 }
+
+/* Typography hierarchy: page title, section, body, caption */
+.text-page-title { font-size: 1.5rem; font-weight: 600; line-height: 1.3; color: var(--foreground); }
+.text-section-title { font-size: 1.25rem; font-weight: 600; line-height: 1.35; color: var(--foreground); }
+.text-body { font-size: 1rem; line-height: 1.55; color: var(--body); }
+.text-caption { font-size: 0.875rem; line-height: 1.45; color: var(--muted-foreground); }
+
+/* Note/textarea: comfortable reading for longer entries */
+.note-textarea { line-height: 1.55; }
+
+/* Card and elevated shadows */
+.shadow-card { box-shadow: var(--shadow-card); }
+.shadow-elevated { box-shadow: var(--shadow-elevated); }
 
 /* Glassmorphism Utility */
 .glass {
@@ -105,27 +132,51 @@ body {
   border: 1px solid var(--glass-border);
 }
 
+/* Card with soft glow border (like quote card – no hard line) */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: none;
+  box-shadow: var(--glass-card-shadow);
+}
+
 /* Smooth transitions for theme switching */
 html {
   transition: background-color 0.3s ease;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* Hide all scrollbars app-wide; scrolling still works via wheel/touch/drag */
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--muted);
+/* Hide scrollbar on any element that uses this class */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
+/* Optional: slim scrollbar for modals/dropdowns if we ever want a visible one */
+.scrollbar-slim::-webkit-scrollbar {
+  width: 6px;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
 }
 
 /* Animations */
@@ -175,4 +226,27 @@ html {
 
 .animate-pulse-soft {
   animation: pulse-soft 3s ease-in-out infinite;
+}
+
+/* Icon square click: pop and move */
+@keyframes icon-pop {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(0, -8px) scale(1.08);
+  }
+  50% {
+    transform: translate(0, 2px) scale(0.96);
+  }
+  75% {
+    transform: translate(0, -2px) scale(1.02);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.animate-icon-pop {
+  animation: icon-pop 0.45s ease-out forwards;
 }
